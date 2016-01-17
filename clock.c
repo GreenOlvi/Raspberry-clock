@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wiringPi.h>
+#include <fcntl.h>
 
 int digitPins[] = {0, 1, 2, 3};
 int segmentPins[] = {4, 5, 12, 13, 6, 14, 10, 11};
@@ -153,19 +154,42 @@ int timer = 0;
 struct tm *t;
 time_t tim;
 
+void setTime(char *digits, int *points)
+{
+   tim = time(NULL);
+   t = localtime(&tim);
+   sprintf(digits, "%02d%02d", t->tm_hour, t->tm_min);
+   points[1] = t->tm_sec % 2;
+}
+
+FILE *fp;
+char dev[] = "/sys/bus/w1/devices/28-0000056d7819/w1_slave";
+void setTemp(char *digits, int *points)
+{
+   int fd = open(dev, O_RDONLY);
+   char buf[256];
+   char tmpData[6];
+   int numRead;
+   while((numRead = read(fd, buf, 100)) > 0) 
+   {
+      strncpy(tmpData, strstr(buf, "t=") + 2, 5); 
+      float tempC = strtof(tmpData, NULL);
+      sprintf(digits, "%4.0f", tempC);
+      points[1] = 1;
+   }
+   close(fd);
+}
+
 void update()
 {
    char digits[4];
 
-   tim = time(NULL);
-   t = localtime(&tim);
-
-   sprintf(digits, "%02d%02d", t->tm_hour, t->tm_min);
-   points[1] = t->tm_sec % 2;
+   //setTime(digits, points);
+   setTemp(digits, points);
 
    setString(digits);
 
-   delay(500);
+   delay(1000);
    timer++;
 }
 
